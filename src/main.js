@@ -1,15 +1,48 @@
 import "./style.css";
 
-//task: {id:, text:, active:}
-let taskList = [];
-let nextId = 1;
-const getTextArea = document.getElementById("new-note");
-const getNoteWall = document.getElementById("notes-wall");
+const inputNewNote = document.getElementById("new-note");
+const notesWall = document.getElementById("notes-wall");
 
-// a div -> a button for deleting, task text, another textarea for edit and transforming effect
-function createButton() {
-    const button = document.createElement("button");
-    button.classList.add(
+const addNote = (notes, text, id) => [...notes, { id, text }];
+
+const removeNote = (notes, id) => notes.filter((n) => n.id !== id);
+
+const updateNoteText = (notes, id, newText) =>
+    notes.map((n) => (n.id === id ? { ...n, text: newText } : n));
+
+const createNotesApp = () => {
+    let notes = [];
+    let nextId = 1;
+    let editingId = null; // only one note can be edited at a time
+
+    return {
+        add: (text) => {
+            notes = addNote(notes, text, nextId++);
+        },
+        remove: (id) => {
+            notes = removeNote(notes, id);
+            if (editingId === id) editingId = null;
+        },
+        startEditing: (id) => {
+            editingId = id;
+        },
+        stopEditing: () => {
+            editingId = null;
+        },
+        saveEdit: (id, newText) => {
+            notes = updateNoteText(notes, id, newText);
+            editingId = null;
+        },
+        getNotes: () => [...notes],
+        getEditingId: () => editingId,
+    };
+};
+
+const notesApp = createNotesApp();
+
+const createDeleteButton = () => {
+    const btn = document.createElement("button");
+    btn.classList.add(
         "absolute",
         "w-5",
         "h-5",
@@ -23,24 +56,24 @@ function createButton() {
         "right-1",
         "hover:opacity-100",
     );
-    button.textContent = "🗑";
-    return button;
-}
+    btn.textContent = "🗑";
+    return btn;
+};
 
-function createText(task) {
+const createNoteText = (note, isEditing) => {
     const div = document.createElement("div");
     div.classList.add("p-4", "note-text");
-    div.textContent = task.text;
+    if (isEditing) div.classList.add("hidden");
+    div.textContent = note.text;
     return div;
-}
+};
 
-function createNoteEdit(task) {
-    const editText = document.createElement("textarea");
-    editText.classList.add(
+const createNoteEdit = (note, isEditing) => {
+    const ta = document.createElement("textarea");
+    ta.classList.add(
         "absolute",
         "top-0",
         "left-0",
-        "hidden",
         "w-full",
         "h-full",
         "p-4",
@@ -52,16 +85,16 @@ function createNoteEdit(task) {
         "outline-rose-700",
         "outline-offset-0",
         "note-edit",
-        "note",
         "hover:scale-105",
     );
-    editText.value = task.text;
-    return editText;
-}
+    if (!isEditing) ta.classList.add("hidden");
+    ta.value = note.text;
+    return ta;
+};
 
-function createNote(task) {
-    const note = document.createElement("div");
-    note.classList.add(
+const createNoteCard = (note, isEditing) => {
+    const card = document.createElement("div");
+    card.classList.add(
         "relative",
         "w-40",
         "h-40",
@@ -75,127 +108,138 @@ function createNote(task) {
         "note",
         "hover:scale-105",
     );
-    note.setAttribute("id", `note-task-${task.id}`);
-    note.append(createButton(), createText(task), createNoteEdit(task));
-    return note;
-}
+    card.id = `note-${note.id}`;
 
-function findOpenEditor() {
-    return document.querySelector(".note-edit:not(.hidden)");
-}
+    const textEl = createNoteText(note, isEditing);
+    const editEl = createNoteEdit(note, isEditing);
 
-function saveAndExit(note) {
-    const noteText = note.querySelector(".note-text");
-    const noteEdit = note.querySelector(".note-edit");
-    const editID = parseTodoId(note);
+    card.append(createDeleteButton(), textEl, editEl);
+    return card;
+};
 
-    let getInputText = noteEdit.value.trim();
+const parseNoteId = (noteEl) =>
+    noteEl ? Number(noteEl.id.split("-").pop()) : -1;
 
-    if (getInputText === "") {
-        taskList = taskList.filter((task) => task.id !== editID);
-        renderNoteWall();
-        return;
+const renderNotes = () => {
+    notesWall.innerHTML = "";
+
+    const editingId = notesApp.getEditingId();
+    const noteEls = notesApp
+        .getNotes()
+        .map((note) => createNoteCard(note, note.id === editingId));
+
+    notesWall.append(...noteEls);
+
+    // focus textarea if we are editing
+    if (editingId !== null) {
+        const editingCard = document.getElementById(`note-${editingId}`);
+        const ta = editingCard?.querySelector(".note-edit");
+        if (ta) {
+            ta.focus();
+            ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
     }
+};
 
-    taskList = taskList.map((task) =>
-        task.id === editID ? { ...task, text: getInputText } : task,
-    );
-
-    noteText.textContent = getInputText;
-    noteEdit.classList.add("hidden");
-    noteText.classList.remove("hidden");
-
-    noteEdit.blur();
-}
-
-function closeAllEditors() {
-    const openEdit = findOpenEditor();
-    if (!openEdit) return;
-
-    const note = openEdit.closest('div.note[id^="note-task-"]');
-    if (!note) return;
-
-    saveAndExit(note);
-}
-
-//getNoteWall.addEventListener("dblclick", toggleText);
-function toggleText(event) {
-    closeAllEditors();
-    //only when click the button
-    const note = event.target.closest('div.note[id^="note-task-"]');
-    if (!note) return;
-    //when click the delete button, remove from the list
-    const noteText = note.querySelector(".note-text");
-    const noteEdit = note.querySelector(".note-edit");
-    noteText.classList.add("hidden");
-    noteEdit.classList.remove("hidden");
-    noteEdit.focus();
-    noteEdit.setSelectionRange(noteEdit.value.length, noteEdit.value.length);
-}
-
-function handleEditKeydown(event) {
-    const noteEdit = event.target.closest(".note-edit");
-    if (!noteEdit) return;
+// ----------------------------
+// Event handlers
+// ----------------------------
+const handleCreateNote = (event) => {
+    // Shift+Enter => allow newline in the input textarea
     if (event.key === "Enter" && event.shiftKey) return;
-    if (event.key !== "Enter" && event.key !== "Escape") return;
 
-    event.preventDefault();
-    const note = noteEdit.closest('div.note[id^="note-task-"]');
-    if (!note) return;
-    saveAndExit(note);
-}
-
-function renderNoteWall() {
-    getNoteWall.innerHTML = "";
-    for (const task of taskList) {
-        getNoteWall.appendChild(createNote(task));
-    }
-}
-
-function handleDeleteTask(event) {
-    const deleteBtn = event.target.closest(".delete-btn");
-    if (!deleteBtn) return;
-
-    const deleteNote = deleteBtn.closest('div.note[id^="note-task-"]');
-    const deleteID = parseTodoId(deleteNote);
-
-    taskList = taskList.filter((task) => task.id !== deleteID);
-    renderNoteWall();
-}
-
-const parseTodoId = (element) => (element ? Number(element.id.split("-").pop()) : -1);
-
-function handleEnterInput(event) {
-    let getInputText = getTextArea.value;
-    if (event.key === "Enter" && event.shiftKey) {
-        return;
-    }
-    else if (event.key === "Enter") {
+    if (event.key === "Enter") {
         event.preventDefault();
-        getInputText = getInputText.trim();
-        if (getInputText === "") { //typing space is not valid, retype, back to placeholder
+
+        const text = event.target.value.trim();
+        if (!text) {
             event.target.value = "";
             return;
         }
-        taskList.push({ id: nextId++, text: getInputText, active: true });
+
+        notesApp.add(text);
         event.target.value = "";
-
-        renderNoteWall();
+        renderNotes();
     }
-}
+};
 
-document.addEventListener('DOMContentLoaded', renderNoteWall);
+const handleWallDblClick = (event) => {
+    const note = event.target.closest(".note");
+    if (!note) return;
 
-getNoteWall.addEventListener("dblclick", toggleText);
-getNoteWall.addEventListener("click", handleDeleteTask);
-getTextArea.addEventListener("keydown", handleEnterInput);
-getNoteWall.addEventListener("keydown", handleEditKeydown);
+    const id = parseNoteId(note);
+    if (id === -1) return;
+
+    // only one note in edit mode at a time
+    notesApp.startEditing(id);
+    renderNotes();
+};
+
+const handleWallClick = (event) => {
+    const deleteBtn = event.target.closest(".delete-btn");
+    if (!deleteBtn) return;
+
+    const note = deleteBtn.closest(".note");
+    const id = parseNoteId(note);
+
+    notesApp.remove(id);
+    renderNotes();
+};
+
+const handleWallKeyDown = (event) => {
+    const edit = event.target.closest(".note-edit");
+    if (!edit) return;
+
+    // Shift+Enter => newline inside edit textarea
+    if (event.key === "Enter" && event.shiftKey) return;
+
+    // Save on Enter or Escape
+    if (event.key !== "Enter" && event.key !== "Escape") return;
+
+    event.preventDefault();
+
+    const note = edit.closest(".note");
+    const id = parseNoteId(note);
+    if (id === -1) return;
+
+    const text = edit.value.trim();
+
+    // If empty after edit, delete note
+    if (!text) {
+        notesApp.remove(id);
+        renderNotes();
+        return;
+    }
+
+    notesApp.saveEdit(id, text);
+    renderNotes();
+};
 
 document.addEventListener("click", (event) => {
-    const openEdit = findOpenEditor();
-    if (!openEdit) return;
+    // click outside edit textarea saves (if an edit is open)
+    const editingId = notesApp.getEditingId();
+    if (editingId === null) return;
+
     if (event.target.closest(".note-edit")) return;
-    const note = openEdit.closest('div.note[id^="note-task-"]');
-    if (!note) return;
-    saveAndExit(note);
+
+    const editingCard = document.getElementById(`note-${editingId}`);
+    const edit = editingCard?.querySelector(".note-edit");
+    if (!edit) return;
+
+    const text = edit.value.trim();
+
+    if (!text) {
+        notesApp.remove(editingId);
+        renderNotes();
+        return;
+    }
+
+    notesApp.saveEdit(editingId, text);
+    renderNotes();
 });
+
+document.addEventListener("DOMContentLoaded", renderNotes);
+inputNewNote.addEventListener("keydown", handleCreateNote);
+notesWall.addEventListener("dblclick", handleWallDblClick);
+notesWall.addEventListener("click", handleWallClick);
+notesWall.addEventListener("keydown", handleWallKeyDown);
