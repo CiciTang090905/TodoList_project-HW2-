@@ -3,5 +3,21 @@
 @import "tailwindcss";
 
 .note-text {
-  white-space: pre-wrap;
+    white-space: pre-wrap;
+}
+
+.note-edit {
+    overflow: hidden !important;
+}
+
+.note-edit:focus {
+    outline: none !important;
+}
+
+.note-edit::-webkit-scrollbar {
+    display: none;
+}
+
+.note-edit {
+    scrollbar-width: none;
 }

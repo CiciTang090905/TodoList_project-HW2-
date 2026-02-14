@@ -6,7 +6,6 @@ let nextId = 1;
 const getTextArea = document.getElementById("new-note");
 const getNoteWall = document.getElementById("notes-wall");
 
-//notewall:
 // a div -> a button for deleting, task text, another textarea for edit and transforming effect
 function createButton() {
     const button = document.createElement("button");
@@ -22,7 +21,7 @@ function createButton() {
         "delete-btn",
         "top-1",
         "right-1",
-        "hover:opacity-100"
+        "hover:opacity-100",
     );
     button.textContent = "🗑";
     return button;
@@ -53,7 +52,8 @@ function createNoteEdit(task) {
         "outline-rose-700",
         "outline-offset-0",
         "note-edit",
-        "hover:scale-105"
+        "note",
+        "hover:scale-105",
     );
     editText.value = task.text;
     return editText;
@@ -73,75 +73,78 @@ function createNote(task) {
         "bg-yellow-200",
         "shadow-lg",
         "note",
-        "hover:scale-105"
+        "hover:scale-105",
     );
     note.setAttribute("id", `note-task-${task.id}`);
     note.append(createButton(), createText(task), createNoteEdit(task));
     return note;
 }
 
+function findOpenEditor() {
+    return document.querySelector(".note-edit:not(.hidden)");
+}
+
+function saveAndExit(note) {
+    const noteText = note.querySelector(".note-text");
+    const noteEdit = note.querySelector(".note-edit");
+    const editID = parseTodoId(note);
+
+    let getInputText = noteEdit.value.trim();
+
+    if (getInputText === "") {
+        taskList = taskList.filter((task) => task.id !== editID);
+        renderNoteWall();
+        return;
+    }
+
+    taskList = taskList.map((task) =>
+        task.id === editID ? { ...task, text: getInputText } : task,
+    );
+
+    noteText.textContent = getInputText;
+    noteEdit.classList.add("hidden");
+    noteText.classList.remove("hidden");
+
+    noteEdit.blur();
+}
+
+function closeAllEditors() {
+    const openEdit = findOpenEditor();
+    if (!openEdit) return;
+
+    const note = openEdit.closest('div.note[id^="note-task-"]');
+    if (!note) return;
+
+    saveAndExit(note);
+}
+
 //getNoteWall.addEventListener("dblclick", toggleText);
 function toggleText(event) {
+    closeAllEditors();
     //only when click the button
-    const note = event.target.closest(".note");
+    const note = event.target.closest('div.note[id^="note-task-"]');
     if (!note) return;
     //when click the delete button, remove from the list
     const noteText = note.querySelector(".note-text");
     const noteEdit = note.querySelector(".note-edit");
     noteText.classList.add("hidden");
     noteEdit.classList.remove("hidden");
-
     noteEdit.focus();
     noteEdit.setSelectionRange(noteEdit.value.length, noteEdit.value.length);
-
-    note.addEventListener("keydown", (event) => {
-        //after enter the edit mode, we get the edit text value, align with the note-text, switch back, when receive enter
-        if (event.key !== "Enter") return; 
-        let getInputText = getTextArea.value;
-        event.preventDefault();
-        getInputText = getInputText.trim();
-        if (getInputText === "") { //if delete all the message, then delete the note
-            handleDeleteTask(event);
-            return;
-        }
-        taskList[note.id].text = getInputText;
-        noteText.textContent = getInputText;
-        noteText.classList.toggle("hidden");
-        noteEdit.classList.toggle("hidden");
-    });
 }
 
 function handleEditKeydown(event) {
     const noteEdit = event.target.closest(".note-edit");
     if (!noteEdit) return;
-
-    // Shift+Enter => allow newline inside textarea
     if (event.key === "Enter" && event.shiftKey) return;
-
-    // only save on Enter (you can add Escape later)
-    if (event.key !== "Enter") return;
+    if (event.key !== "Enter" && event.key !== "Escape") return;
 
     event.preventDefault();
-
-    const note = noteEdit.closest(".note");
-    const noteText = note.querySelector(".note-text");
-    const editID = parseTodoId(note);
-
-    let getInputText = noteEdit.value.trim();
-    if (getInputText === "") {
-        taskList = taskList.filter((task) => task.id !== editID);
-        renderNoteWall();
-        return;
-    }
-    taskList = taskList.map((task) =>
-        task.id === editID ? { ...task, text: getInputText } : task
-    );
-    noteText.textContent = getInputText;
-    noteEdit.classList.add("hidden");
-    noteText.classList.remove("hidden");
+    const note = noteEdit.closest('div.note[id^="note-task-"]');
+    if (!note) return;
+    saveAndExit(note);
 }
 
-//if click outside of notewall, or hit enter, toggle back
 function renderNoteWall() {
     getNoteWall.innerHTML = "";
     for (const task of taskList) {
@@ -153,7 +156,7 @@ function handleDeleteTask(event) {
     const deleteBtn = event.target.closest(".delete-btn");
     if (!deleteBtn) return;
 
-    const deleteNote = event.target.closest(".note")
+    const deleteNote = deleteBtn.closest('div.note[id^="note-task-"]');
     const deleteID = parseTodoId(deleteNote);
 
     taskList = taskList.filter((task) => task.id !== deleteID);
@@ -182,7 +185,17 @@ function handleEnterInput(event) {
 }
 
 document.addEventListener('DOMContentLoaded', renderNoteWall);
-getTextArea.addEventListener("keydown", handleEnterInput);
+
 getNoteWall.addEventListener("dblclick", toggleText);
 getNoteWall.addEventListener("click", handleDeleteTask);
 getTextArea.addEventListener("keydown", handleEnterInput);
+getNoteWall.addEventListener("keydown", handleEditKeydown);
+
+document.addEventListener("click", (event) => {
+    const openEdit = findOpenEditor();
+    if (!openEdit) return;
+    if (event.target.closest(".note-edit")) return;
+    const note = openEdit.closest('div.note[id^="note-task-"]');
+    if (!note) return;
+    saveAndExit(note);
+});
