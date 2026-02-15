@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [tailwindcss()],
-  base: "/hw2-starter/", /* TODO: update to your repository name */
+  // replace TodoList with the EXACT repository name shown in the URL
+  base: "/TodoList_project-HW2/",
 });
