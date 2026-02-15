@@ -141,9 +141,6 @@ const renderNotes = () => {
     }
 };
 
-// ----------------------------
-// Event handlers
-// ----------------------------
 const handleCreateNote = (event) => {
     // Shift+Enter => allow newline in the input textarea
     if (event.key === "Enter" && event.shiftKey) return;
